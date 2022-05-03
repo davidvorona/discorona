@@ -2,7 +2,7 @@
 
 Discorona is a Discord bot that acts as a server-wide infection simulation. Players can choose to either contain or spread the infection.
 
-## Rules:
+## Rules
 - discorona initially spawns from  outside media content: images, links, new users, etc
 - discorona can spread to users via interaction with an already infected user
 - users can choose to protect others from their infection, or spread it knowingly
@@ -10,7 +10,7 @@ Discorona is a Discord bot that acts as a server-wide infection simulation. Play
 - once infection is complete, the bot kills itself and leaves the server (or disables itself)
 - the win state is inoculating all users against the coronavirus
 
-## Concepts:
+## Concepts
 
 1. **Exposure**
 	- always when the bot is added to a server

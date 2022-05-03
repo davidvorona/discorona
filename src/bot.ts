@@ -1,11 +1,12 @@
-import { Client, Guild, Intents } from "discord.js";
-import GameHandler from "./game/GameHandler";
+import { Client, Intents } from "discord.js";
+import Pandemic from "./pandemic/Pandemic";
 import { parseJson, readFile } from "./util";
+import { EMOJI } from "./constants";
 import { AuthJson } from "./types";
 
 const { TOKEN } = parseJson(readFile("../config/auth.json")) as AuthJson;
 
-let gameHandler: GameHandler;
+let pandemic: Pandemic;
 
 const client = new Client({
     intents: [
@@ -26,26 +27,29 @@ client.on("ready", () => {
     }
     console.log("------");
     console.log("Initial discorona outbreak imminent...")
-    gameHandler = new GameHandler();
-    gameHandler.addAll(client.guilds.cache.map(g => g.id));
-    gameHandler.getAll().forEach((game) => {
-        const guild = client.guilds.cache.get(game.guildId);
-        guild && game.infect(guild.ownerId);
+    pandemic = new Pandemic();
+    pandemic.addAll(client.guilds.cache.map(g => g.id));
+    pandemic.getAll().forEach((outbreak) => {
+        const guild = client.guilds.cache.get(outbreak.guildId);
+        guild && outbreak.infect(guild.ownerId);
     });
 });
 
 client.on("guildCreate", (guild) => {
-    gameHandler.add(guild.id);
-    const game = gameHandler.get(guild.id);
-    game && game.infect(guild.ownerId);
+    pandemic.add(guild.id);
+    const outbreak = pandemic.get(guild.id);
+    outbreak && outbreak.infect(guild.ownerId);
 });
 
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
     const user = message.author;
     if (message.guildId) {
-        const game = gameHandler.get(message.guildId);
-        if (game && game.getInfected().includes(user.id)) {
-            message.reply("An infected user has spoken in the chat...");
+        const outbreak = pandemic.get(message.guildId);
+        if (outbreak && outbreak.getInfected().includes(user.id)) {
+            message.react(EMOJI.MICROBE);
+            const messages = await message.channel.messages.fetch({ limit: 2 });
+            const lastMessage = messages.last();
+            outbreak.spread(message, lastMessage);
         }
     }
 });

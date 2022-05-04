@@ -5,7 +5,7 @@ import { Routes } from "discord-api-types/v9";
 import Pandemic from "./pandemic/pandemic";
 import { getReadableDateFromCronTime, parseJson, readFile, runStateCheck, runStorageInterval } from "./util";
 import { defaultLogger as log } from "./logger";
-import { EMOJI } from "./constants";
+import { CRON_TIME, EMOJI } from "./constants";
 import { AuthJson, ConfigJson } from "./types";
 import Heuristics from "./heuristics";
 import Storage from "./storage";
@@ -31,11 +31,6 @@ const client = new Client({
         Intents.FLAGS.GUILD_MESSAGES
     ]
 });
-
-// On ready, state is restored from storage
-// Heuristics are (re)generated for each guild
-// Outbreaks are created for each guild, using data from state to hydrate
-// Every 9am and 9pm outbreak state is checked for a stage change or end state
 
 client.on("ready", async () => {
     try {
@@ -69,17 +64,21 @@ client.on("ready", async () => {
         // periodically saving state to storage
         runStorageInterval(storage, pandemic);
         // Start the state checker on a cron job
-        const EVERY_DAY_AT_9_AM_AND_PM = "0 9,21 * * *";
+        const cronTime = process.env.DEV_MODE
+            ? CRON_TIME.EVERY_MINUTE
+            : CRON_TIME.EVERY_DAY_AT_9_AM_AND_PM;
         const stateCheckJob = new CronJob(
-            EVERY_DAY_AT_9_AM_AND_PM,
-            () => runStateCheck(guildHeuristics, pandemic),
-            () => log.info(
-                "State check complete, next check at",
-                getReadableDateFromCronTime(EVERY_DAY_AT_9_AM_AND_PM)
-            )
+            cronTime,
+            () => {
+                runStateCheck(guildHeuristics, pandemic);
+                log.info(
+                    "State check complete, next check at",
+                    getReadableDateFromCronTime(cronTime)
+                );
+            }
         );
         stateCheckJob.start();
-        log.info("Next state check at", getReadableDateFromCronTime(EVERY_DAY_AT_9_AM_AND_PM));
+        log.info("Next state check at", getReadableDateFromCronTime(cronTime));
     } catch (err) {
         log.error(err);
     }
@@ -93,7 +92,13 @@ client.on("guildCreate", async (guild) => {
             { body: commands }
         );
         log.info("Successfully reloaded application (/) commands.");
+        // Get state for the guild if exists
         const state = serializedState[guild.id];
+        // Generate heuristics for the guild
+        const heuristics = new Heuristics(guild);
+        await heuristics.loadHeuristics();
+        guildHeuristics[guild.id] = heuristics;
+        // Create an outbreak for the guild
         pandemic.add(guild, state);
         const outbreak = pandemic.get(guild.id);
         const owner = await guild.fetchOwner();

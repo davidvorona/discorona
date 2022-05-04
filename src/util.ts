@@ -2,7 +2,7 @@ import { Client, AnyChannel, Guild, GuildMember, Collection, Channel, Message, T
 import * as fs from "fs";
 import { timeout } from "cron";
 import path from "path";
-import { TEXT_CHANNEL_TYPE, INFECTION_STAGE } from "./constants";
+import { TEXT_CHANNEL_TYPE, INFECTION_STAGE, MINIMUM_STAGE_LENGTH } from "./constants";
 import Heuristics, { GuildHeuristics } from "./heuristics";
 import { defaultLogger as log } from "./logger";
 import { OutbreakState } from "./pandemic/outbreak";
@@ -120,10 +120,12 @@ export const runStateCheck = async (heuristics: Record<string, Heuristics>, pand
         const {
             minimumActiveUsers
         } = guildHeuristics.getHeuristics() as GuildHeuristics;
+        const timeInStage = Date.now() - outbreak.stageSetTimestamp;
         // If in outbreak stage and infected count goes above the
         // minimum active users count
         if (
             outbreak.getStage() === INFECTION_STAGE.OUTBREAK
+            && timeInStage >= MINIMUM_STAGE_LENGTH.OUTBREAK
             && outbreak.getInfected().length >= minimumActiveUsers
         ) {
             outbreak.setStage(INFECTION_STAGE.CONTAINMENT);
@@ -133,6 +135,7 @@ export const runStateCheck = async (heuristics: Record<string, Heuristics>, pand
         // of the minimum active users count
         if (
             outbreak.getStage() === INFECTION_STAGE.CONTAINMENT
+            && timeInStage >= MINIMUM_STAGE_LENGTH.CONTAINMENT
             && outbreak.getInfected().length <= (minimumActiveUsers / 2)
         ) {
             outbreak.setStage(INFECTION_STAGE.MUTATION);
@@ -142,6 +145,7 @@ export const runStateCheck = async (heuristics: Record<string, Heuristics>, pand
         // above 150% of the minimum active users count
         if (
             outbreak.getStage() === INFECTION_STAGE.MUTATION
+            && timeInStage >= MINIMUM_STAGE_LENGTH.MUTATION
             && (outbreak.getInfected().length <= (minimumActiveUsers / 4)
             || outbreak.getInfected().length >= (minimumActiveUsers * 1.5))
         ) {
@@ -149,7 +153,10 @@ export const runStateCheck = async (heuristics: Record<string, Heuristics>, pand
             return;
         }
         // If in pandemic stage, start checking for win/loss conditions
-        if (outbreak.getStage() === INFECTION_STAGE.PANDEMIC) {
+        if (
+            outbreak.getStage() === INFECTION_STAGE.PANDEMIC
+            && timeInStage >= MINIMUM_STAGE_LENGTH.PANDEMIC
+        ) {
             log.info("Outbreak is now in a pandemic state!");
         }
     }));

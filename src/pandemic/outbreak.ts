@@ -77,6 +77,7 @@ export default class Outbreak {
         }
         this.stage = stage;
         this.stageSetTimestamp = Date.now();
+        this.log.info("Stage set to", this.stage);
     }
 
     getInfected = () => this.infected;

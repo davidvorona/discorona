@@ -1,4 +1,4 @@
-import { Client, AnyChannel, Guild, GuildMember } from "discord.js";
+import { Client, AnyChannel, Guild, GuildMember, Collection, Channel, Message, TextChannel } from "discord.js";
 import * as fs from "fs";
 import path from "path";
 
@@ -48,4 +48,44 @@ export const getChannel = (container: Guild | Client | GuildMember, channelId: s
         return container.guild.channels.cache.get(channelId);
     }
     return container.channels.cache.get(channelId);
+};
+
+/**
+ * Gets the message history from a list of channels.
+ * 
+ * @param channels
+ * @param after
+ * @returns
+ */
+export const fetchMessageHistory = async (channels: Collection<string, Channel>, after: number, limit = 1000) => {
+    const textChannels = channels
+        .filter(channel => channel.type === "GUILD_TEXT") as Collection<string, TextChannel>;
+    const messages = await Promise.all(textChannels.map(async (channel) => {
+        const messages = await channel.messages.fetch();
+        const fetchMessages = async (before?: string) => {
+            // If collected messages greater than hard maximum, abort
+            if (messages.size >= limit) {
+                return;
+            }
+            const page = await channel.messages.fetch({ before });
+            // If nothing was fetched, abort
+            if (!page.size) {
+                return;
+            }
+            const firstMessage = page.first() as Message;
+            // If the most recent message is after the date limit, abort
+            if (firstMessage.createdTimestamp <= after) {
+                return;
+            }
+            messages.concat(page);
+            const lastMessage = page.last() as Message;
+            await fetchMessages(lastMessage.id);
+        };
+        if (messages.size) {
+            const lastMessage = messages.last() as Message;
+            await fetchMessages(lastMessage.id);
+        }
+        return messages;
+    }));
+    return messages;
 };

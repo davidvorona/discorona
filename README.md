@@ -56,9 +56,9 @@ Discorona is a Discord bot that acts as a server-wide infection simulation. Play
 1. **Outbreak**
 
 	During this stage, the infection cannot be put into a win or loss state, and vaccines
-cannot be produced. Coughs are more likely to distributed to infected users. The outbreak
-stage moves to the containment stage when the number of infected is at least a minimum active
-users count determined by message history and a certain period of time has passed. 
+cannot be produced. Coughs are more likely to be distributed. The outbreak stage moves to
+the containment stage when the number of infected is at least a minimum active users count
+determined by message history and a certain period of time has passed. 
 
 2. **Containment**
 

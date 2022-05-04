@@ -6,6 +6,7 @@ import { parseJson, readFile } from "./util";
 import Logger from "./logger";
 import { EMOJI } from "./constants";
 import { AuthJson, ConfigJson } from "./types";
+import State from "./state";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const commands = require("../config/commands");
 
@@ -16,6 +17,7 @@ const rest = new REST({ version: "9" }).setToken(TOKEN);
 
 const log = new Logger();
 
+const guildStates: Record<string, State> = {};
 let pandemic: Pandemic;
 
 const client = new Client({
@@ -27,23 +29,33 @@ const client = new Client({
 });
 
 client.on("ready", () => {
-    if (client.user) {
-        log.info(`Logged in as ${client.user.tag}!`);
+    try {
+        if (client.user) {
+            log.info(`Logged in as ${client.user.tag}!`);
+        }
+        // For now, make sure global commands are cleared if any found
+        if (client.application) {
+            log.info("Clearing any existing global application (/) commands.");
+            client.application.commands.set([]);
+        }
+        log.info("------");
+        log.info("Initial discorona outbreak imminent...");
+        pandemic = new Pandemic();
+        client.guilds.cache.forEach(async (guild) => {
+            // Create an outbreak for the guild
+            pandemic.add(guild);
+            // Register new state for the guild
+            const guildState = new State(guild);
+            guildStates[guild.id] = guildState;
+            await guildState.getGuildHeuristics();
+            // Infect the owner to start the infection
+            const owner = await guild.fetchOwner();
+            const outbreak = pandemic.get(guild.id);
+            outbreak && outbreak.infect(owner.user);
+        });
+    } catch (err) {
+        log.error(err);
     }
-    // For now, make sure global commands are cleared if any found
-    if (client.application) {
-        log.info("Clearing any existing global application (/) commands.");
-        client.application.commands.set([]);
-    }
-    log.info("------");
-    log.info("Initial discorona outbreak imminent...");
-    pandemic = new Pandemic();
-    pandemic.addAll(client.guilds.cache.map(g => g));
-    pandemic.getAll().forEach(async (outbreak) => {
-        const guild = client.guilds.cache.get(outbreak.guildId);
-        const owner = guild && await guild.fetchOwner();
-        owner && outbreak.infect(owner.user);
-    });
 });
 
 client.on("guildCreate", async (guild) => {

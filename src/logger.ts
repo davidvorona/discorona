@@ -5,13 +5,15 @@ export default class Logger {
         this.prefix = prefix;
     }
 
-    log(...args: string[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    log(...args: any[]) {
         const date = new Date();
         const prefixArgs = this.prefix ? [date, `[${this.prefix}]:`] : [date];
         console.log(...prefixArgs, ...args);
     }
 
-    info(...args: string[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    info(...args: any[]) {
         this.log(...args);
     }
 

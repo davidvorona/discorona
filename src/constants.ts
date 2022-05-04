@@ -11,3 +11,5 @@ export const INFECTION_STAGE = {
     MUTATION: "mutation",
     PANDEMIC: "pandemic"
 };
+
+export const TEXT_CHANNEL_TYPE = "GUILD_TEXT";

@@ -1,22 +1,18 @@
 import { Guild } from "discord.js";
-import Outbreak from "./outbreak";
+import Outbreak, { OutbreakState } from "./outbreak";
 
 class Pandemic {
     private outbreaks: Outbreak[] = [];
 
-    add(guild: Guild) {
-        this.outbreaks.push(new Outbreak(guild));
-    }
-
-    addAll(guilds: Guild[]) {
-        this.outbreaks.push(...guilds.map(guild => new Outbreak(guild)));
+    add(guild: Guild, state?: OutbreakState) {
+        this.outbreaks.push(new Outbreak(guild, state));
     }
 
     get(guildId: string) {
         return this.outbreaks.find(g => g.guildId === guildId);
     }
 
-    getAll(): Outbreak[] {
+    getAll() {
         return this.outbreaks;
     }
 }

@@ -26,3 +26,5 @@ export default class Logger {
         }
     }
 }
+
+export const defaultLogger = new Logger();

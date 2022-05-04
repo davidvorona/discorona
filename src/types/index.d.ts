@@ -9,3 +9,8 @@ export interface ConfigJson {
     GUILD_ID: string;
     DATA_DIR: string;
 }
+
+export interface AnyObject {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [key: string]: string | number | any;
+}

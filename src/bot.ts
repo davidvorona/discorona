@@ -2,11 +2,13 @@ import { Client, Intents, GuildMember, Message } from "discord.js";
 import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/v9";
 import Pandemic from "./pandemic/pandemic";
-import { parseJson, readFile } from "./util";
-import Logger from "./logger";
+import { parseJson, readFile, runStorageInterval } from "./util";
+import { defaultLogger as log } from "./logger";
 import { EMOJI } from "./constants";
 import { AuthJson, ConfigJson } from "./types";
-import State from "./state";
+import Heuristics from "./heuristics";
+import Storage from "./storage";
+import { OutbreakState } from "./pandemic/outbreak";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const commands = require("../config/commands");
 
@@ -15,9 +17,10 @@ const { CLIENT_ID } = parseJson(readFile("../config/config.json")) as ConfigJson
 
 const rest = new REST({ version: "9" }).setToken(TOKEN);
 
-const log = new Logger();
+const storage = new Storage("./state.json");
+const serializedState = storage.read() as Record<string, OutbreakState>;
 
-const guildStates: Record<string, State> = {};
+const guildHeuristics: Record<string, Heuristics> = {};
 let pandemic: Pandemic;
 
 const client = new Client({
@@ -28,7 +31,12 @@ const client = new Client({
     ]
 });
 
-client.on("ready", () => {
+// On ready, state is restored from storage
+// Heuristics are (re)generated for each guild
+// Outbreaks are created for each guild, using data from state to hydrate
+// Every 9am and 9pm outbreak state is checked for a stage change or end state
+
+client.on("ready", async () => {
     try {
         if (client.user) {
             log.info(`Logged in as ${client.user.tag}!`);
@@ -41,18 +49,25 @@ client.on("ready", () => {
         log.info("------");
         log.info("Initial discorona outbreak imminent...");
         pandemic = new Pandemic();
-        client.guilds.cache.forEach(async (guild) => {
+        await Promise.all(client.guilds.cache.map(async (guild) => {
+            // Get state for the guild if exists
+            const state = serializedState[guild.id];
+            // Generate heuristics for the guild
+            const heuristics = new Heuristics(guild);
+            guildHeuristics[guild.id] = heuristics;
+            await heuristics.loadHeuristics();
             // Create an outbreak for the guild
-            pandemic.add(guild);
-            // Register new state for the guild
-            const guildState = new State(guild);
-            guildStates[guild.id] = guildState;
-            await guildState.getGuildHeuristics();
-            // Infect the owner to start the infection
+            pandemic.add(guild, state);
+            // Infect the owner if necessary to start the infection
             const owner = await guild.fetchOwner();
             const outbreak = pandemic.get(guild.id);
-            outbreak && outbreak.infect(owner.user);
-        });
+            if (outbreak && !outbreak.getInfected().length) {
+                outbreak.infect(owner.user);
+            }
+        }));
+        // Once outbreaks have been created for each guild, begin
+        // periodically saving state to storage
+        runStorageInterval(storage, pandemic);
     } catch (err) {
         log.error(err);
     }
@@ -66,10 +81,13 @@ client.on("guildCreate", async (guild) => {
             { body: commands }
         );
         log.info("Successfully reloaded application (/) commands.");
-        pandemic.add(guild);
+        const state = serializedState[guild.id];
+        pandemic.add(guild, state);
         const outbreak = pandemic.get(guild.id);
         const owner = await guild.fetchOwner();
-        outbreak && outbreak.infect(owner.user);
+        if (outbreak && outbreak.canInfect(owner.user.id)) {
+            outbreak.infect(owner.user);
+        }
     } catch (err) {
         log.error(err);
     }
@@ -92,7 +110,12 @@ client.on("messageCreate", async (message) => {
                 const messages = await message.channel.messages.fetch({ limit: LAST_MESSAGE_COUNT });
                 if (messages.size === LAST_MESSAGE_COUNT) {
                     const lastMessage = messages.last() as Message;
-                    outbreak.incubate(message, lastMessage);
+                    outbreak.incubate({
+                        channelId: message.channelId,
+                        messageId: message.id,
+                        createdTimestamp: message.createdTimestamp,
+                        lastMessageId: lastMessage.id
+                    });
                 }
             }
         }

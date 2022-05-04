@@ -1,12 +1,22 @@
-import { Guild, Message, User } from "discord.js";
-import { EMOJI } from "../constants";
-import Spreader from "./spreader";
+import { Guild, Message, TextChannel, User } from "discord.js";
+import { EMOJI, INFECTION_STAGE } from "../constants";
+import Spreader, { SpreaderArgs } from "./spreader";
 import Logger from "../logger";
+
+export interface OutbreakState {
+    stage: string;
+    infected: string[];
+    vaccinated: string[];
+    spreaders: Spreader[];
+    distanced: Record<string, string[]>
+}
 
 export default class Outbreak {
     guildId: string;
 
     guild: Guild;
+
+    stage: string = INFECTION_STAGE.OUTBREAK;
 
     log: Logger;
 
@@ -18,18 +28,51 @@ export default class Outbreak {
 
     private distanced: Record<string, string[]> = {};
 
-    constructor(guild: Guild) {
+    constructor(guild: Guild, state?: OutbreakState) {
         this.guildId = guild.id;
         this.guild = guild;
         this.log = new Logger(this.guildId);
+        if (state) {
+            this.hydrate(state);
+        }
         this.log.info("Discorona has spread to guild", this.guildId);
+    }
+
+    hydrate(state: OutbreakState) {
+        this.stage = state.stage || INFECTION_STAGE.OUTBREAK;
+        this.infected = state.infected;
+        this.vaccinated = state.vaccinated;
+        // For spreaders, restart incubation
+        state.spreaders.forEach(s => this.incubate(s));
+        this.distanced = state.distanced;
+    }
+
+    getState = (): OutbreakState => ({
+        stage: this.stage,
+        infected: this.infected,
+        vaccinated: this.vaccinated,
+        spreaders: this.spreaders,
+        distanced: this.distanced
+    });
+
+    validateStage(stage: string) {
+        return Object.values(INFECTION_STAGE).includes(stage);
+    }
+
+    getStage = (): string => this.stage;
+
+    setStage(stage: string) {
+        if (!this.validateStage(stage)) {
+            throw new Error("Invalid stage: " + stage);
+        }
+        this.stage = stage;
     }
 
     getInfected = () => this.infected;
 
     isInfected = (userId: string) => this.infected.includes(userId);
 
-    private canInfect = (userId: string) => !this.isInfected(userId) && !this.isVaccinated(userId);
+    canInfect = (userId: string) => !this.isInfected(userId) && !this.isVaccinated(userId);
 
     async infect(user: User) {
         this.infected.push(user.id);
@@ -51,18 +94,20 @@ export default class Outbreak {
     private canSpread = (userId: string, message: Message) =>
         this.canInfect(userId) && message.reactions.cache.get(EMOJI.MASK) === undefined;
     
-    incubate(message: Message, lastMessage: Message) {
-        const spreader = new Spreader({ message, lastMessage });
+    incubate(args: SpreaderArgs) {
+        const spreader = new Spreader(args);
         this.spreaders.push(spreader);
         const spreadThis = this.spread.bind(this);
         spreader.incubate(spreadThis);
-        this.log.info("Discorona is incubating in message", message.id);
+        this.log.info("Discorona is incubating in message", args.messageId);
     }
 
     private async spread(spreader: Spreader) {
         try {
             this.spreaders.splice(this.spreaders.indexOf(spreader));
-            const { lastMessage } = spreader;
+            const { lastMessageId, channelId } = spreader;
+            const channel = this.guild.channels.cache.get(channelId) as TextChannel;
+            const lastMessage = await channel.messages.fetch(lastMessageId);
             const infectedId = lastMessage.author.id;
             if (this.canSpread(infectedId, lastMessage)) {
                 this.log.info("Discorona is now spreading to message", lastMessage.id);

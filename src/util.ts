@@ -1,6 +1,11 @@
 import { Client, AnyChannel, Guild, GuildMember, Collection, Channel, Message, TextChannel } from "discord.js";
 import * as fs from "fs";
 import path from "path";
+import { TEXT_CHANNEL_TYPE } from "./constants";
+import { defaultLogger as log } from "./logger";
+import { OutbreakState } from "./pandemic/outbreak";
+import Pandemic from "./pandemic/pandemic";
+import Storage from "./storage";
 
 /**
  * Reads the file at the provided file path and returns stringified data.
@@ -22,7 +27,7 @@ export const parseJson = (dataJson: string): any => {
     try {
         return JSON.parse(dataJson);
     } catch (err) {
-        console.error("Failed to read JSON", dataJson);
+        log.error(`Failed to read JSON ${dataJson}`);
         throw err;
     }
 };
@@ -53,15 +58,17 @@ export const getChannel = (container: Guild | Client | GuildMember, channelId: s
 /**
  * Gets the message history from a list of channels.
  * 
- * @param channels
- * @param after
- * @returns
+ * @param {Collection} channels
+ * @param {number} after
+ * @param {number} [limit]
+ * @returns {Promise<Record<string, Collection>>}
  */
-export const fetchMessageHistory = async (channels: Collection<string, Channel>, after: number, limit = 1000) => {
+export const fetchMessageHistory = async (channels: Collection<string, Channel>, after: number, limit = 1000): Promise<Record<string, Collection<string, Message>>> => {
     const textChannels = channels
-        .filter(channel => channel.type === "GUILD_TEXT") as Collection<string, TextChannel>;
-    const messages = await Promise.all(textChannels.map(async (channel) => {
-        const messages = await channel.messages.fetch();
+        .filter(channel => channel.type === TEXT_CHANNEL_TYPE) as Collection<string, TextChannel>;
+    const messageHistory: Record<string, Collection<string, Message>> = {};
+    await Promise.all(textChannels.map(async (channel) => {
+        let messages = await channel.messages.fetch();
         const fetchMessages = async (before?: string) => {
             // If collected messages greater than hard maximum, abort
             if (messages.size >= limit) {
@@ -77,15 +84,29 @@ export const fetchMessageHistory = async (channels: Collection<string, Channel>,
             if (firstMessage.createdTimestamp <= after) {
                 return;
             }
-            messages.concat(page);
+            messages = messages.concat(page);
             const lastMessage = page.last() as Message;
             await fetchMessages(lastMessage.id);
         };
         if (messages.size) {
+            // Recursively call fetchMessages, starting from the last message
             const lastMessage = messages.last() as Message;
             await fetchMessages(lastMessage.id);
+            // Add the channel's message history to the result object
+            messageHistory[channel.id] = messages;
         }
-        return messages;
     }));
-    return messages;
+    return messageHistory;
+};
+
+export const runStorageInterval = async (storage: Storage, pandemic: Pandemic): Promise<void> => {
+    const THIRTY_SECONDS = 30000;
+    setInterval(() => {
+        const outbreaks = pandemic.getAll();
+        const serializableState: Record<string, OutbreakState> = {};
+        outbreaks.forEach((outbreak) => {
+            serializableState[outbreak.guildId] = outbreak.getState();
+        });
+        storage.write(serializableState);
+    }, THIRTY_SECONDS);
 };

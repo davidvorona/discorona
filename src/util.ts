@@ -1,5 +1,6 @@
 import { Client, AnyChannel, Guild, GuildMember, Collection, Channel, Message, TextChannel } from "discord.js";
 import * as fs from "fs";
+import { timeout } from "cron";
 import path from "path";
 import { TEXT_CHANNEL_TYPE, INFECTION_STAGE } from "./constants";
 import Heuristics, { GuildHeuristics } from "./heuristics";
@@ -112,7 +113,7 @@ export const runStorageInterval = async (storage: Storage, pandemic: Pandemic): 
     }, THIRTY_SECONDS);
 };
 
-export const runHeuristicsCheck = async (heuristics: Record<string, Heuristics>, pandemic: Pandemic): Promise<void> => {
+export const runStateCheck = async (heuristics: Record<string, Heuristics>, pandemic: Pandemic): Promise<void> => {
     const outbreaks = pandemic.getAll();
     await Promise.all(outbreaks.map(async (outbreak) => {
         const guildHeuristics = heuristics[outbreak.guildId];
@@ -152,4 +153,8 @@ export const runHeuristicsCheck = async (heuristics: Record<string, Heuristics>,
             log.info("Outbreak is now in a pandemic state!");
         }
     }));
+};
+
+export const getReadableDateFromCronTime = (cronTime: string | Date | moment.Moment): string => {
+    return new Date(Date.now() + timeout(cronTime)).toLocaleString();
 };

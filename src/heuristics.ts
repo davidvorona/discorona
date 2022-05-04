@@ -49,7 +49,7 @@ export default class Heuristics {
             uniqueActiveUsers,
             channelMessageCounts
         };
-        this.log.info("Heuristics:", this.heuristics);
+        this.log.info("Heuristics generated");
     }
 
     getHeuristics = () => this.heuristics;

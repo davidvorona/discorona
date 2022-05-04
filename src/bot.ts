@@ -1,8 +1,9 @@
 import { Client, Intents, GuildMember, Message } from "discord.js";
+import { CronJob } from "cron";
 import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/v9";
 import Pandemic from "./pandemic/pandemic";
-import { parseJson, readFile, runStorageInterval } from "./util";
+import { getReadableDateFromCronTime, parseJson, readFile, runStateCheck, runStorageInterval } from "./util";
 import { defaultLogger as log } from "./logger";
 import { EMOJI } from "./constants";
 import { AuthJson, ConfigJson } from "./types";
@@ -17,7 +18,7 @@ const { CLIENT_ID } = parseJson(readFile("../config/config.json")) as ConfigJson
 
 const rest = new REST({ version: "9" }).setToken(TOKEN);
 
-const storage = new Storage("./state.json");
+const storage = new Storage("state.json");
 const serializedState = storage.read() as Record<string, OutbreakState>;
 
 const guildHeuristics: Record<string, Heuristics> = {};
@@ -47,7 +48,6 @@ client.on("ready", async () => {
             client.application.commands.set([]);
         }
         log.info("------");
-        log.info("Initial discorona outbreak imminent...");
         pandemic = new Pandemic();
         await Promise.all(client.guilds.cache.map(async (guild) => {
             // Get state for the guild if exists
@@ -68,6 +68,18 @@ client.on("ready", async () => {
         // Once outbreaks have been created for each guild, begin
         // periodically saving state to storage
         runStorageInterval(storage, pandemic);
+        // Start the state checker on a cron job
+        const EVERY_DAY_AT_9_AM_AND_PM = "0 9,21 * * *";
+        const stateCheckJob = new CronJob(
+            EVERY_DAY_AT_9_AM_AND_PM,
+            () => runStateCheck(guildHeuristics, pandemic),
+            () => log.info(
+                "State check complete, next check at",
+                getReadableDateFromCronTime(EVERY_DAY_AT_9_AM_AND_PM)
+            )
+        );
+        stateCheckJob.start();
+        log.info("Next state check at", getReadableDateFromCronTime(EVERY_DAY_AT_9_AM_AND_PM));
     } catch (err) {
         log.error(err);
     }

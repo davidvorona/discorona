@@ -29,7 +29,7 @@ export default class Outbreak {
 
     getSpreaders = () => this.spreaders;
 
-    incubate(message: Message, lastMessage?: Message) {
+    incubate(message: Message, lastMessage: Message) {
         const spreader = new Spreader({ message, lastMessage });
         this.spreaders.push(spreader);
         const spreadThis = this.spread.bind(this);
@@ -40,35 +40,39 @@ export default class Outbreak {
     private async spread(spreader: Spreader) {
         this.spreaders.splice(this.spreaders.indexOf(spreader));
         const { message, lastMessage } = spreader;
-        if (lastMessage) {
-            console.log(
-                "Discorona is now spreading from message", message.id,
-                "to message", lastMessage.id
-            );
-            lastMessage.react(EMOJI.MICROBE);
-            const infectedId = lastMessage.author.id;
-            if (!this.infected.includes(infectedId) && !this.isVaccinated(infectedId)) {
-                this.infect(infectedId);
-                const dmChannel = await lastMessage.author.createDM();
-                dmChannel.send("You have been infected with discorona...will you contain or spread the virus?");
-            } else {
-                console.log("Discorona could not infect user", lastMessage.author.id);
-            }
+        console.log(
+            "Discorona is now spreading from message", message.id,
+            "to message", lastMessage.id
+        );
+        lastMessage.react(EMOJI.MICROBE);
+        const infectedId = lastMessage.author.id;
+        if (!this.infected.includes(infectedId) && !this.isVaccinated(infectedId)) {
+            this.infect(infectedId);
+            const dmChannel = await lastMessage.author.createDM();
+            dmChannel.send("You have been infected with discorona...will you contain or spread the virus?");
+        } else {
+            console.log("Discorona could not infect user", lastMessage.author.id);
         }
     }
 
-    vaccinate(userId: string) {
+    vaccinate(userId: string): boolean {
         if (!this.isVaccinated(userId)) {
             console.log("User", userId, "has been vaccinated against discorona");
             this.vaccinated.push(userId);
+            return true;
         }
+        return false;
     }
+
+    getVaccinated = () => this.vaccinated;
 
     private isVaccinated = (userId: string) => this.vaccinated.indexOf(userId) > -1;
 
-    cough(userId: string) {
+    cough(userId: string): boolean {
         if (!this.isVaccinated(userId) && !this.infected.includes(userId)) {
             this.infect(userId);
+            return true;
         }
+        return false;
     }
 }

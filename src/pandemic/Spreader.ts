@@ -2,7 +2,7 @@ import { Message } from "discord.js";
 
 interface SpreaderArgs {
     message: Message;
-    lastMessage?: Message;
+    lastMessage: Message;
 }
 
 const DEFAULT_INCUBATION_PERIOD = 1000; // 1000 * 60 * 60; // 1 hour
@@ -10,7 +10,7 @@ const DEFAULT_INCUBATION_PERIOD = 1000; // 1000 * 60 * 60; // 1 hour
 export default class Spreader {
     message: Message;
 
-    lastMessage?: Message;
+    lastMessage: Message;
 
     incubationPeriod: number = DEFAULT_INCUBATION_PERIOD;
 

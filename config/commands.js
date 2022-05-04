@@ -8,10 +8,10 @@ module.exports = [
     },
     {
         name: "vaccinate",
-        description: "Vaccinate an infected user",
+        description: "Vaccinate an infected or healthy user",
         options: [{
             type: ApplicationCommandOptionType.Mentionable,
-            name: "infected",
+            name: "patient",
             description: "Who do you want to vaccinate?",
             required: true
         }]

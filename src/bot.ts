@@ -38,10 +38,11 @@ client.on("ready", () => {
     log.info("------");
     log.info("Initial discorona outbreak imminent...");
     pandemic = new Pandemic();
-    pandemic.addAll(client.guilds.cache.map(g => g.id));
-    pandemic.getAll().forEach((outbreak) => {
+    pandemic.addAll(client.guilds.cache.map(g => g));
+    pandemic.getAll().forEach(async (outbreak) => {
         const guild = client.guilds.cache.get(outbreak.guildId);
-        guild && outbreak.infect(guild.ownerId);
+        const owner = guild && await guild.fetchOwner();
+        owner && outbreak.infect(owner.user);
     });
 });
 
@@ -53,9 +54,10 @@ client.on("guildCreate", async (guild) => {
             { body: commands }
         );
         log.info("Successfully reloaded application (/) commands.");
-        pandemic.add(guild.id);
+        pandemic.add(guild);
         const outbreak = pandemic.get(guild.id);
-        outbreak && outbreak.infect(guild.ownerId);
+        const owner = await guild.fetchOwner();
+        outbreak && outbreak.infect(owner.user);
     } catch (err) {
         log.error(err);
     }
@@ -68,7 +70,7 @@ client.on("messageCreate", async (message) => {
             const outbreak = pandemic.get(message.guildId);
             // If user is social distancing, prevent the spread and end the distancing
             if (outbreak && outbreak.isDistanced(user.id, message.channelId)) {
-                outbreak.endSocialDistancing(user.id, message.channelId);
+                outbreak.endDistancing(user.id, message.channelId);
                 return;
             }
             if (outbreak && outbreak.isInfected(user.id)) {
@@ -117,7 +119,7 @@ client.on("interactionCreate", async (interaction) => {
             if (outbreak && outbreak.isVaccinated(victim.id)) {
                 text = `${victim.user} is vaccinated against discorona. Too bad!`;
             } else {
-                const result = outbreak && outbreak.cough(victim.id);
+                const result = outbreak && outbreak.cough(victim.user);
                 text = result
                     ? `You have coughed on ${victim.user}. Gross!`
                     : `${victim.user} is already infected with discorona.`;
@@ -132,7 +134,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "distance") {
         if (interaction.guildId) {
             const outbreak = pandemic.get(interaction.guildId);
-            const result = outbreak && outbreak.socialDistance(interaction.user.id, interaction.channelId);
+            const result = outbreak && outbreak.startDistancing(interaction.user.id, interaction.channelId);
             const text = result
                 ? "You are now social distancing, your next message in this channel cannot spread the infection."
                 : "You are already social distancing in this channel.";

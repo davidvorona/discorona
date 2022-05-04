@@ -1,14 +1,12 @@
-import { Message } from "discord.js";
+import { Guild, Message, User } from "discord.js";
 import { EMOJI } from "../constants";
 import Spreader from "./spreader";
 import Logger from "../logger";
 
-interface OutbreakArgs {
-    guildId: string;
-}
-
 export default class Outbreak {
     guildId: string;
+
+    guild: Guild;
 
     log: Logger;
 
@@ -20,8 +18,9 @@ export default class Outbreak {
 
     private distanced: Record<string, string[]> = {};
 
-    constructor(args: OutbreakArgs) {
-        this.guildId = args.guildId;
+    constructor(guild: Guild) {
+        this.guildId = guild.id;
+        this.guild = guild;
         this.log = new Logger(this.guildId);
         this.log.info("Discorona has spread to guild", this.guildId);
     }
@@ -32,14 +31,16 @@ export default class Outbreak {
 
     private canInfect = (userId: string) => !this.isInfected(userId) && !this.isVaccinated(userId);
 
-    infect(userId: string) {
-        this.infected.push(userId);
-        this.log.info("Discorona has infected user", userId);
+    async infect(user: User) {
+        this.infected.push(user.id);
+        const dmChannel = await user.createDM();
+        await dmChannel.send(`You have been infected with discorona in ${this.guild}...`);
+        this.log.info("Discorona has infected user", user.id);
     }
 
-    cough(userId: string): boolean {
-        if (this.canInfect(userId)) {
-            this.infect(userId);
+    cough(user: User): boolean {
+        if (this.canInfect(user.id)) {
+            this.infect(user);
             return true;
         }
         return false;
@@ -66,9 +67,7 @@ export default class Outbreak {
             if (this.canSpread(infectedId, lastMessage)) {
                 this.log.info("Discorona is now spreading to message", lastMessage.id);
                 await lastMessage.react(EMOJI.MICROBE);
-                this.infect(infectedId);
-                const dmChannel = await lastMessage.author.createDM();
-                dmChannel.send("You have been infected with discorona...will you contain or spread the virus?");
+                await this.infect(lastMessage.author);
             } else {
                 this.log.info("Discorona failed to spread to message", lastMessage.id);
             }
@@ -97,7 +96,7 @@ export default class Outbreak {
     isDistanced = (userId: string, channelId: string) =>
         this.distanced[userId] && this.distanced[userId].includes(channelId);
 
-    socialDistance(userId: string, channelId: string): boolean {
+    startDistancing(userId: string, channelId: string): boolean {
         if (!this.isDistanced(userId, channelId)) {
             if (!this.distanced[userId]) {
                 this.distanced[userId] = [];
@@ -108,7 +107,7 @@ export default class Outbreak {
         return false;
     }
 
-    endSocialDistancing(userId: string, channelId: string) {
+    endDistancing(userId: string, channelId: string) {
         if (this.isDistanced(userId, channelId)) {
             this.distanced[userId].splice(this.distanced[userId].indexOf(channelId));
         }

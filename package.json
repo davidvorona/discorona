@@ -8,7 +8,8 @@
     "build": "tsc --build",
     "clean": "tsc --build --clean",
     "prestart": "npm run build",
-    "start": "node dist/bot.js"
+    "start": "node dist/bot.js",
+    "deploy-commands": "node bin/deploy-commands.js"
   },
   "author": "David Vorona",
   "license": "ISC",

@@ -1,4 +1,5 @@
 import { Message } from "discord.js";
+import { EMOJI } from "../constants";
 import Spreader from "./Spreader";
 
 interface OutbreakArgs {
@@ -9,6 +10,8 @@ export default class Outbreak {
     guildId: string;
 
     private infected: string[] = [];
+
+    private vaccinated: string[] = [];
 
     private spreaders: Spreader[] = [];
 
@@ -26,14 +29,46 @@ export default class Outbreak {
 
     getSpreaders = () => this.spreaders;
 
-    spread(message: Message, lastMessage?: Message) {
+    incubate(message: Message, lastMessage?: Message) {
         const spreader = new Spreader({ message, lastMessage });
         this.spreaders.push(spreader);
-        spreader.incubate(() => this.stopSpread(spreader));
+        const spreadThis = this.spread.bind(this);
+        spreader.incubate(spreadThis);
         console.log("Discorona is incubating in message", message.id);
     }
 
-    private stopSpread(spreader: Spreader) {
+    private async spread(spreader: Spreader) {
         this.spreaders.splice(this.spreaders.indexOf(spreader));
+        const { message, lastMessage } = spreader;
+        if (lastMessage) {
+            console.log(
+                "Discorona is now spreading from message", message.id,
+                "to message", lastMessage.id
+            );
+            lastMessage.react(EMOJI.MICROBE);
+            const infectedId = lastMessage.author.id;
+            if (!this.infected.includes(infectedId) && !this.isVaccinated(infectedId)) {
+                this.infect(infectedId);
+                const dmChannel = await lastMessage.author.createDM();
+                dmChannel.send("You have been infected with discorona...will you contain or spread the virus?");
+            } else {
+                console.log("Discorona could not infect user", lastMessage.author.id);
+            }
+        }
+    }
+
+    vaccinate(userId: string) {
+        if (!this.isVaccinated(userId)) {
+            console.log("User", userId, "has been vaccinated against discorona");
+            this.vaccinated.push(userId);
+        }
+    }
+
+    private isVaccinated = (userId: string) => this.vaccinated.indexOf(userId) > -1;
+
+    cough(userId: string) {
+        if (!this.isVaccinated(userId) && !this.infected.includes(userId)) {
+            this.infect(userId);
+        }
     }
 }

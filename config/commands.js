@@ -25,5 +25,9 @@ module.exports = [
             description: "Who do you want to infect?",
             required: true
         }]
+    },
+    {
+        name: "distance",
+        description: "Practice social distancing for your next message"
     }
 ];

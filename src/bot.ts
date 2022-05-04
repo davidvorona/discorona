@@ -1,8 +1,9 @@
 import { Client, Intents, GuildMember, Message } from "discord.js";
 import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/v9";
-import Pandemic from "./pandemic/Pandemic";
+import Pandemic from "./pandemic/pandemic";
 import { parseJson, readFile } from "./util";
+import Logger from "./logger";
 import { EMOJI } from "./constants";
 import { AuthJson, ConfigJson } from "./types";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -12,6 +13,8 @@ const { TOKEN } = parseJson(readFile("../config/auth.json")) as AuthJson;
 const { CLIENT_ID } = parseJson(readFile("../config/config.json")) as ConfigJson;
 
 const rest = new REST({ version: "9" }).setToken(TOKEN);
+
+const log = new Logger();
 
 let pandemic: Pandemic;
 
@@ -25,15 +28,15 @@ const client = new Client({
 
 client.on("ready", () => {
     if (client.user) {
-        console.log(`Logged in as ${client.user.tag}!`);
+        log.info(`Logged in as ${client.user.tag}!`);
     }
     // For now, make sure global commands are cleared if any found
     if (client.application) {
-        console.warn("Clearing any existing global application (/) commands.");
+        log.info("Clearing any existing global application (/) commands.");
         client.application.commands.set([]);
     }
-    console.log("------");
-    console.log("Initial discorona outbreak imminent...");
+    log.info("------");
+    log.info("Initial discorona outbreak imminent...");
     pandemic = new Pandemic();
     pandemic.addAll(client.guilds.cache.map(g => g.id));
     pandemic.getAll().forEach((outbreak) => {
@@ -44,17 +47,17 @@ client.on("ready", () => {
 
 client.on("guildCreate", async (guild) => {
     try {
-        console.log(`Started refreshing application (/) commands for guild: ${guild.id}.`);
+        log.info(`Started refreshing application (/) commands for guild: ${guild.id}.`);
         await rest.put(
             Routes.applicationGuildCommands(CLIENT_ID, guild.id),
             { body: commands }
         );
-        console.log("Successfully reloaded application (/) commands.");
+        log.info("Successfully reloaded application (/) commands.");
         pandemic.add(guild.id);
         const outbreak = pandemic.get(guild.id);
         outbreak && outbreak.infect(guild.ownerId);
     } catch (err) {
-        console.error(err);
+        log.error(err);
     }
 });
 
@@ -63,7 +66,12 @@ client.on("messageCreate", async (message) => {
         const user = message.author;
         if (message.guildId) {
             const outbreak = pandemic.get(message.guildId);
-            if (outbreak && outbreak.getInfected().includes(user.id)) {
+            // If user is social distancing, prevent the spread and end the distancing
+            if (outbreak && outbreak.isDistanced(user.id, message.channelId)) {
+                outbreak.endSocialDistancing(user.id, message.channelId);
+                return;
+            }
+            if (outbreak && outbreak.isInfected(user.id)) {
                 await message.react(EMOJI.MICROBE);
                 // If there is a previous message, spread the infection
                 const LAST_MESSAGE_COUNT = 2;
@@ -75,7 +83,7 @@ client.on("messageCreate", async (message) => {
             }
         }
     } catch (err) {
-        console.error(err);
+        log.error(err);
     }
 });
 
@@ -114,6 +122,20 @@ client.on("interactionCreate", async (interaction) => {
                     ? `You have coughed on ${victim.user}. Gross!`
                     : `${victim.user} is already infected with discorona.`;
             }
+            await interaction.reply({
+                content: text,
+                ephemeral: true
+            });
+        }
+    }
+
+    if (interaction.commandName === "distance") {
+        if (interaction.guildId) {
+            const outbreak = pandemic.get(interaction.guildId);
+            const result = outbreak && outbreak.socialDistance(interaction.user.id, interaction.channelId);
+            const text = result
+                ? "You are now social distancing, your next message in this channel cannot spread the infection."
+                : "You are already social distancing in this channel.";
             await interaction.reply({
                 content: text,
                 ephemeral: true

@@ -1,4 +1,4 @@
-import Outbreak from "./Outbreak";
+import Outbreak from "./outbreak";
 
 class Pandemic {
     private outbreaks: Outbreak[] = [];

@@ -59,19 +59,23 @@ client.on("guildCreate", async (guild) => {
 });
 
 client.on("messageCreate", async (message) => {
-    const user = message.author;
-    if (message.guildId) {
-        const outbreak = pandemic.get(message.guildId);
-        if (outbreak && outbreak.getInfected().includes(user.id)) {
-            message.react(EMOJI.MICROBE);
-            // If there is a previous message, spread the infection
-            const LAST_MESSAGE_COUNT = 2;
-            const messages = await message.channel.messages.fetch({ limit: LAST_MESSAGE_COUNT });
-            if (messages.size === LAST_MESSAGE_COUNT) {
-                const lastMessage = messages.last() as Message;
-                outbreak.incubate(message, lastMessage);
+    try {
+        const user = message.author;
+        if (message.guildId) {
+            const outbreak = pandemic.get(message.guildId);
+            if (outbreak && outbreak.getInfected().includes(user.id)) {
+                await message.react(EMOJI.MICROBE);
+                // If there is a previous message, spread the infection
+                const LAST_MESSAGE_COUNT = 2;
+                const messages = await message.channel.messages.fetch({ limit: LAST_MESSAGE_COUNT });
+                if (messages.size === LAST_MESSAGE_COUNT) {
+                    const lastMessage = messages.last() as Message;
+                    outbreak.incubate(message, lastMessage);
+                }
             }
         }
+    } catch (err) {
+        console.error(err);
     }
 });
 
@@ -90,7 +94,7 @@ client.on("interactionCreate", async (interaction) => {
             const text = result
                 ? `You have vaccinated ${patient.user} against infection. How responsible!`
                 : `${patient.user} is already vaccinated!`; 
-            interaction.reply({
+            await interaction.reply({
                 content: text,
                 ephemeral: true
             });
@@ -101,18 +105,16 @@ client.on("interactionCreate", async (interaction) => {
         const victim = interaction.options.getMentionable("victim") as GuildMember;
         if (interaction.guildId) {
             const outbreak = pandemic.get(interaction.guildId);
-            if (outbreak && outbreak.getVaccinated().includes(victim.id)) {
-                interaction.reply({
-                    content: `${victim.user} is vaccinated against discorona. Too bad!`,
-                    ephemeral: true
-                });
-                return;
+            let text: string;
+            if (outbreak && outbreak.isVaccinated(victim.id)) {
+                text = `${victim.user} is vaccinated against discorona. Too bad!`;
+            } else {
+                const result = outbreak && outbreak.cough(victim.id);
+                text = result
+                    ? `You have coughed on ${victim.user}. Gross!`
+                    : `${victim.user} is already infected with discorona.`;
             }
-            const result = outbreak && outbreak.cough(victim.id);
-            const text = result
-                ? `You have coughed on ${victim.user}. Gross!`
-                : `${victim.user} is already infected with discorona.`;
-            interaction.reply({
+            await interaction.reply({
                 content: text,
                 ephemeral: true
             });

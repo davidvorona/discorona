@@ -1,4 +1,5 @@
 export const EMOJI = {
     MICROBE: "🦠",
-    SYRINGE: "💉"
+    SYRINGE: "💉",
+    MASK: "😷"
 } as const;

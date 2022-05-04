@@ -5,7 +5,8 @@ interface SpreaderArgs {
     lastMessage: Message;
 }
 
-const DEFAULT_INCUBATION_PERIOD = 1000; // 1000 * 60 * 60; // 1 hour
+// 1 hour (1 second in dev mode)
+const DEFAULT_INCUBATION_PERIOD = process.env.DEV_MODE ? 1000 : 1000 * 60 * 60;
 
 export default class Spreader {
     message: Message;

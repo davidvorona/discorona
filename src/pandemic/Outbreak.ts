@@ -22,12 +22,27 @@ export default class Outbreak {
 
     getInfected = () => this.infected;
 
+    private isInfected = (userId: string) => this.infected.includes(userId);
+
+    private canInfect = (userId: string) => !this.isInfected(userId) && !this.isVaccinated(userId);
+
     infect(userId: string) {
         this.infected.push(userId);
         console.log("Discorona has infected the user", userId);
     }
 
+    cough(userId: string): boolean {
+        if (this.canInfect(userId)) {
+            this.infect(userId);
+            return true;
+        }
+        return false;
+    }
+
     getSpreaders = () => this.spreaders;
+
+    private canSpread = (userId: string, message: Message) =>
+        this.canInfect(userId) && message.reactions.cache.get(EMOJI.MASK) === undefined;
 
     incubate(message: Message, lastMessage: Message) {
         const spreader = new Spreader({ message, lastMessage });
@@ -38,39 +53,34 @@ export default class Outbreak {
     }
 
     private async spread(spreader: Spreader) {
-        this.spreaders.splice(this.spreaders.indexOf(spreader));
-        const { message, lastMessage } = spreader;
-        console.log(
-            "Discorona is now spreading from message", message.id,
-            "to message", lastMessage.id
-        );
-        lastMessage.react(EMOJI.MICROBE);
-        const infectedId = lastMessage.author.id;
-        if (!this.infected.includes(infectedId) && !this.isVaccinated(infectedId)) {
-            this.infect(infectedId);
-            const dmChannel = await lastMessage.author.createDM();
-            dmChannel.send("You have been infected with discorona...will you contain or spread the virus?");
-        } else {
-            console.log("Discorona could not infect user", lastMessage.author.id);
+        try {
+            this.spreaders.splice(this.spreaders.indexOf(spreader));
+            const { lastMessage } = spreader;
+            const infectedId = lastMessage.author.id;
+            if (this.canSpread(infectedId, lastMessage)) {
+                console.log("Discorona is now spreading to message", lastMessage.id);
+                await lastMessage.react(EMOJI.MICROBE);
+                this.infect(infectedId);
+                const dmChannel = await lastMessage.author.createDM();
+                dmChannel.send("You have been infected with discorona...will you contain or spread the virus?");
+            } else {
+                console.log("Discorona failed to spread to message", lastMessage.id);
+            }
+        } catch (err) {
+            console.error(err);
         }
-    }
-
-    vaccinate(userId: string): boolean {
-        if (!this.isVaccinated(userId)) {
-            console.log("User", userId, "has been vaccinated against discorona");
-            this.vaccinated.push(userId);
-            return true;
-        }
-        return false;
     }
 
     getVaccinated = () => this.vaccinated;
 
-    private isVaccinated = (userId: string) => this.vaccinated.indexOf(userId) > -1;
+    isVaccinated = (userId: string) => this.vaccinated.indexOf(userId) > -1;
 
-    cough(userId: string): boolean {
-        if (!this.isVaccinated(userId) && !this.infected.includes(userId)) {
-            this.infect(userId);
+    private canVaccinate = (userId: string) => !this.isVaccinated(userId);
+
+    vaccinate(userId: string): boolean {
+        if (this.canVaccinate(userId)) {
+            console.log("User", userId, "has been vaccinated against discorona");
+            this.vaccinated.push(userId);
             return true;
         }
         return false;

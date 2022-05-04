@@ -1,7 +1,8 @@
 import { Client, AnyChannel, Guild, GuildMember, Collection, Channel, Message, TextChannel } from "discord.js";
 import * as fs from "fs";
 import path from "path";
-import { TEXT_CHANNEL_TYPE } from "./constants";
+import { TEXT_CHANNEL_TYPE, INFECTION_STAGE } from "./constants";
+import Heuristics, { GuildHeuristics } from "./heuristics";
 import { defaultLogger as log } from "./logger";
 import { OutbreakState } from "./pandemic/outbreak";
 import Pandemic from "./pandemic/pandemic";
@@ -109,4 +110,46 @@ export const runStorageInterval = async (storage: Storage, pandemic: Pandemic): 
         });
         storage.write(serializableState);
     }, THIRTY_SECONDS);
+};
+
+export const runHeuristicsCheck = async (heuristics: Record<string, Heuristics>, pandemic: Pandemic): Promise<void> => {
+    const outbreaks = pandemic.getAll();
+    await Promise.all(outbreaks.map(async (outbreak) => {
+        const guildHeuristics = heuristics[outbreak.guildId];
+        const {
+            minimumActiveUsers
+        } = guildHeuristics.getHeuristics() as GuildHeuristics;
+        // If in outbreak stage and infected count goes above the
+        // minimum active users count
+        if (
+            outbreak.getStage() === INFECTION_STAGE.OUTBREAK
+            && outbreak.getInfected().length >= minimumActiveUsers
+        ) {
+            outbreak.setStage(INFECTION_STAGE.CONTAINMENT);
+            return;
+        }
+        // If in containment stage and infected count goes below 50%
+        // of the minimum active users count
+        if (
+            outbreak.getStage() === INFECTION_STAGE.CONTAINMENT
+            && outbreak.getInfected().length <= (minimumActiveUsers / 2)
+        ) {
+            outbreak.setStage(INFECTION_STAGE.MUTATION);
+            return;
+        }
+        // If in mutation stage and infected count goes below 25% or
+        // above 150% of the minimum active users count
+        if (
+            outbreak.getStage() === INFECTION_STAGE.MUTATION
+            && (outbreak.getInfected().length <= (minimumActiveUsers / 4)
+            || outbreak.getInfected().length >= (minimumActiveUsers * 1.5))
+        ) {
+            outbreak.setStage(INFECTION_STAGE.PANDEMIC);
+            return;
+        }
+        // If in pandemic stage, start checking for win/loss conditions
+        if (outbreak.getStage() === INFECTION_STAGE.PANDEMIC) {
+            log.info("Outbreak is now in a pandemic state!");
+        }
+    }));
 };

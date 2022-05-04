@@ -54,8 +54,8 @@ client.on("ready", async () => {
             const state = serializedState[guild.id];
             // Generate heuristics for the guild
             const heuristics = new Heuristics(guild);
-            guildHeuristics[guild.id] = heuristics;
             await heuristics.loadHeuristics();
+            guildHeuristics[guild.id] = heuristics;
             // Create an outbreak for the guild
             pandemic.add(guild, state);
             // Infect the owner if necessary to start the infection

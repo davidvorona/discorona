@@ -2,7 +2,7 @@ import { Guild } from "discord.js";
 import Logger from "./logger";
 import { fetchMessageHistory } from "./util";
 
-interface GuildHeuristics {
+export interface GuildHeuristics {
     minimumActiveUsers: number;
     uniqueActiveUsers: string[];
     channelMessageCounts: Record<string, number>;

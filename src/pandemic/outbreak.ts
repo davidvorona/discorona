@@ -8,15 +8,21 @@ export interface OutbreakState {
     infected: string[];
     vaccinated: string[];
     spreaders: Spreader[];
-    distanced: Record<string, string[]>
+    distanced: Record<string, string[]>;
+    createdAtTimestamp: number;
+    stageSetTimestamp: number;
 }
 
 export default class Outbreak {
+    createdAtTimestamp: number = Date.now();
+
     guildId: string;
 
     guild: Guild;
 
     stage: string = INFECTION_STAGE.OUTBREAK;
+
+    stageSetTimestamp: number = Date.now();
 
     log: Logger;
 
@@ -40,11 +46,13 @@ export default class Outbreak {
 
     hydrate(state: OutbreakState) {
         this.stage = state.stage || INFECTION_STAGE.OUTBREAK;
-        this.infected = state.infected;
-        this.vaccinated = state.vaccinated;
+        this.infected = state.infected || [];
+        this.vaccinated = state.vaccinated || [];
         // For spreaders, restart incubation
         state.spreaders.forEach(s => this.incubate(s));
-        this.distanced = state.distanced;
+        this.distanced = state.distanced || [];
+        this.createdAtTimestamp = state.createdAtTimestamp || Date.now();
+        this.stageSetTimestamp = state.stageSetTimestamp || Date.now();
     }
 
     getState = (): OutbreakState => ({
@@ -52,7 +60,9 @@ export default class Outbreak {
         infected: this.infected,
         vaccinated: this.vaccinated,
         spreaders: this.spreaders,
-        distanced: this.distanced
+        distanced: this.distanced,
+        createdAtTimestamp: this.createdAtTimestamp,
+        stageSetTimestamp: this.stageSetTimestamp
     });
 
     validateStage(stage: string) {
@@ -66,6 +76,7 @@ export default class Outbreak {
             throw new Error("Invalid stage: " + stage);
         }
         this.stage = stage;
+        this.stageSetTimestamp = Date.now();
     }
 
     getInfected = () => this.infected;

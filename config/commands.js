@@ -29,5 +29,9 @@ module.exports = [
     {
         name: "distance",
         description: "Practice social distancing for your next message"
+    },
+    {
+        name: "mask",
+        description: "Put a mask on your last message"
     }
 ];

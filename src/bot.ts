@@ -196,6 +196,21 @@ client.on("interactionCreate", async (interaction) => {
             });
         }
     }
+
+    if (interaction.commandName === "mask") {
+        if (interaction.channel) {
+            const messages = interaction.channel.messages.cache.filter(m => m.author.id === interaction.user.id);
+            const lastMessage = messages.last();
+            lastMessage && await lastMessage.react(EMOJI.MASK);
+            const text = lastMessage
+                ? "You've put a mask on your last message. Good on you!"
+                : "No message found, proud of you for social distancing!";
+            await interaction.reply({
+                content: text,
+                ephemeral: true
+            });
+        }
+    }
 });
 
 client.login(TOKEN);

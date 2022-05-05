@@ -157,8 +157,7 @@ client.on("interactionCreate", async (interaction) => {
                 ? `You have vaccinated ${patient.user} against infection. How responsible!`
                 : `${patient.user} is already vaccinated!`; 
             await interaction.reply({
-                content: text,
-                ephemeral: true
+                content: text
             });
         }
     }
@@ -177,8 +176,7 @@ client.on("interactionCreate", async (interaction) => {
                     : `${victim.user} is already infected with discorona.`;
             }
             await interaction.reply({
-                content: text,
-                ephemeral: true
+                content: text
             });
         }
     }

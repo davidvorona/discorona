@@ -19,7 +19,7 @@ export default class Logger {
 
     error(error: unknown) {
         if (error instanceof Error) {
-            this.log(error.toString());
+            this.log(error);
         } else {
             const errStr = error as string;
             this.log(errStr);

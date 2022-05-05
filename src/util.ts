@@ -1,4 +1,4 @@
-import { Client, AnyChannel, Guild, GuildMember, Collection, Channel, Message, TextChannel } from "discord.js";
+import { Client, AnyChannel, Guild, GuildMember, Collection, Channel, Message, TextChannel, Constants, DiscordAPIError } from "discord.js";
 import * as fs from "fs";
 import { timeout } from "cron";
 import path from "path";
@@ -57,26 +57,49 @@ export const getChannel = (container: Guild | Client | GuildMember, channelId: s
     return container.channels.cache.get(channelId);
 };
 
+export const isMissingAccessError = (err: unknown): boolean =>
+    err instanceof DiscordAPIError && err.code === Constants.APIErrors.MISSING_ACCESS;
+
+
+type MessageHistoryType = Record<string, Collection<string, Message>>;
+
 /**
  * Gets the message history from a list of channels.
  * 
  * @param {Collection} channels
  * @param {number} after
  * @param {number} [limit]
- * @returns {Promise<Record<string, Collection>>}
+ * @returns {Promise<MessageHistoryType>}
  */
-export const fetchMessageHistory = async (channels: Collection<string, Channel>, after: number, limit = 1000): Promise<Record<string, Collection<string, Message>>> => {
+export const fetchMessageHistory = async (channels: Collection<string, Channel>, after: number, limit = 1000): Promise<MessageHistoryType> => {
     const textChannels = channels
         .filter(channel => channel.type === TEXT_CHANNEL_TYPE) as Collection<string, TextChannel>;
     const messageHistory: Record<string, Collection<string, Message>> = {};
     await Promise.all(textChannels.map(async (channel) => {
-        let messages = await channel.messages.fetch();
+        let messages: Collection<string, Message>;
+        try {
+            messages = await channel.messages.fetch();
+        } catch (err) {
+            if (isMissingAccessError(err)) {
+                return;
+            }
+            throw err;
+        }
         const fetchMessages = async (before?: string) => {
             // If collected messages greater than hard maximum, abort
             if (messages.size >= limit) {
                 return;
             }
-            const page = await channel.messages.fetch({ before });
+            // Wrap fetch in try/catch to handle missing access
+            let page;
+            try {
+                page = await channel.messages.fetch({ before });
+            } catch (err) {
+                if (isMissingAccessError(err)) {
+                    return;
+                }
+                throw err;
+            }
             // If nothing was fetched, abort
             if (!page.size) {
                 return;

@@ -113,9 +113,9 @@ export const runStorageInterval = async (storage: Storage, pandemic: Pandemic): 
     }, THIRTY_SECONDS);
 };
 
-export const runStateCheck = async (heuristics: Record<string, Heuristics>, pandemic: Pandemic): Promise<void> => {
+export const runStateCheck = (heuristics: Record<string, Heuristics>, pandemic: Pandemic): void => {
     const outbreaks = pandemic.getAll();
-    await Promise.all(outbreaks.map(async (outbreak) => {
+    outbreaks.forEach((outbreak) => {
         const guildHeuristics = heuristics[outbreak.guildId];
         const {
             minimumActiveUsers
@@ -159,7 +159,7 @@ export const runStateCheck = async (heuristics: Record<string, Heuristics>, pand
         ) {
             log.info("Outbreak is now in a pandemic state!");
         }
-    }));
+    });
 };
 
 export const getReadableDateFromCronTime = (cronTime: string | Date | moment.Moment): string => {

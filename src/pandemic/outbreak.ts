@@ -1,6 +1,7 @@
 import { Guild, Message, TextChannel, User } from "discord.js";
-import { EMOJI, INFECTION_STAGE } from "../constants";
+import { EMOJI, INFECTION_STAGE, THEME } from "../constants";
 import Spreader, { SpreaderArgs } from "./spreader";
+import ThemeProvider from "../theme";
 import Logger from "../logger";
 
 export interface OutbreakState {
@@ -24,6 +25,8 @@ export default class Outbreak {
 
     stageSetTimestamp: number = Date.now();
 
+    theme: string = THEME.DEFAULT;
+
     log: Logger;
 
     private infected: string[] = [];
@@ -42,6 +45,10 @@ export default class Outbreak {
             this.hydrate(state);
         }
         this.log.info("Discorona has spread to guild", this.guildId);
+    }
+
+    setTheme(theme: string) {
+        this.theme = theme;
     }
 
     hydrate(state: OutbreakState) {
@@ -89,7 +96,7 @@ export default class Outbreak {
     async infect(user: User) {
         this.infected.push(user.id);
         const dmChannel = await user.createDM();
-        await dmChannel.send(`You have been infected with discorona in ${this.guild}...`);
+        await dmChannel.send(ThemeProvider.infect(this.theme, this.guild));
         this.log.info("Discorona has infected user", user.id);
     }
 

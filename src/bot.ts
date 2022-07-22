@@ -209,6 +209,18 @@ client.on("interactionCreate", async (interaction) => {
             });
         }
     }
+
+    if (interaction.commandName === "theme") {
+        const theme = interaction.options.getString("theme") as string;
+        if (interaction.guildId) {
+            const outbreak = pandemic.get(interaction.guildId);
+            outbreak && outbreak.setTheme(theme);
+            await interaction.reply({
+                content: `Theme has been set to **${theme}**.`,
+                ephemeral: true
+            });
+        }
+    }
 });
 
 client.login(TOKEN);

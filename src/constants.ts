@@ -18,11 +18,16 @@ export const MINIMUM_STAGE_LENGTH = {
     [INFECTION_STAGE.CONTAINMENT]: ONE_DAY * 2,
     [INFECTION_STAGE.MUTATION]: ONE_DAY * 2,
     [INFECTION_STAGE.PANDEMIC]: ONE_DAY,
-};
+} as const;
 
 export const TEXT_CHANNEL_TYPE = "GUILD_TEXT";
 
 export const CRON_TIME = {
     EVERY_MINUTE: "* * * * *",
     EVERY_DAY_AT_9_AM_AND_PM: "0 9,21 * * *"
+} as const;
+
+export const THEME = {
+    DEFAULT: "default",
+    ZOMBIE: "zombie"
 };
